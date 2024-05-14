@@ -3,7 +3,8 @@
 #include <semaphore.h>
 using namespace std;
 
-sem_t sem_window, sem_player;
+sem_t sem_window, sem_player, sem_player_m ,sem_coin, sem_blue_ghost, sem_power, sem_key, sem_permit, sem_speed;
+int ghostcount = 0;
 
 struct Player
 {
@@ -14,6 +15,7 @@ struct Player
     int text_x, text_y;
     char dir, last_dir;
     int lives;
+    bool powered = false;
 
 public:
     Player()
@@ -88,6 +90,7 @@ public:
         sem_wait(&sem_player);
         static float animation_time = 0;
         static float dir_timer = 0;
+        static float power_time = 0;
         int speed = 500;
         int offsetx, offsety;
         float tempSpeed = (dt * speed) / 2;
@@ -101,6 +104,14 @@ public:
 
         animation_time += dt;
         dir_timer += dt;
+        if(powered == true)
+            power_time += dt;
+        if(power_time >= 5.0f)
+        {
+            powered = false;
+            power_time = 0;
+            sem_post(&sem_power);
+        }
         if (dir_timer >= 0.5)
         {
             last_dir = 'n';
