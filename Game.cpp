@@ -56,8 +56,8 @@ int grid2[16][32] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
 sf::Image sprite_sheet;
-sf::Texture coin_tex;
-sf::Sprite coin_spr;
+sf::Texture coin_tex, power_tex;
+sf::Sprite coin_spr, power_spr;
 int x, y;
 
 struct ghost_inp
@@ -136,10 +136,13 @@ void update()
 void *coin_creation(void *arg)
 {
     sf::Time timing = sf::seconds(0.05f);
-    // while (window->isOpen())
+    while (window->isOpen())
     {
         queue<int> que;
-        coin_arr[11][16] = 1;
+        sem_wait(&sem_coin);
+        if (coin_arr[11][16] != 2)
+            coin_arr[11][16] = 1;
+        sem_post(&sem_coin);
         que.push(11);
         que.push(16);
         int row, col;
@@ -150,29 +153,51 @@ void *coin_creation(void *arg)
             que.pop();
             col = que.front();
             que.pop();
+            sem_wait(&sem_coin);
             if (row + 1 < y && coin_arr[row + 1][col] == 0 && maze_arr[row + 1][col] == 0)
             {
-                coin_arr[row + 1][col] = 1;
+                if (row + 1 == 1 && col == 1 || row + 1 == 1 && col == 30 || row + 1 == 14 && col == 1 || row + 1 == 14 && col == 30)
+                    coin_arr[row + 1][col] = 3;
+                else
+                    coin_arr[row + 1][col] = 1;
                 que.push(row + 1);
                 que.push(col);
             }
             if (row - 1 >= 0 && coin_arr[row - 1][col] == 0 && maze_arr[row - 1][col] == 0)
             {
-                coin_arr[row - 1][col] = 1;
+                if (row - 1 == 1 && col == 1 || row - 1 == 1 && col == 30 || row - 1 == 14 && col == 1 || row - 1 == 14 && col == 30)
+                    coin_arr[row - 1][col] = 3;
+                else
+                    coin_arr[row - 1][col] = 1;
                 que.push(row - 1);
                 que.push(col);
             }
             if (col + 1 < x && coin_arr[row][col + 1] == 0 && maze_arr[row][col + 1] == 0)
             {
-                coin_arr[row][col + 1] = 1;
+                if (row == 1 && col + 1 == 1 || row == 1 && col + 1 == 30 || row == 14 && col + 1 == 1 || row == 14 && col + 1 == 30)
+                    coin_arr[row][col + 1] = 3;
+                else
+                    coin_arr[row][col + 1] = 1;
                 que.push(row);
                 que.push(col + 1);
             }
             if (col - 1 >= 0 && coin_arr[row][col - 1] == 0 && maze_arr[row][col - 1] == 0)
             {
-                coin_arr[row][col - 1] = 1;
+                if (row == 1 && col - 1 == 1 || row == 1 && col - 1 == 30 || row == 14 && col - 1 == 1 || row == 14 && col - 1 == 30)
+                    coin_arr[row][col - 1] = 3;
+                else
+                    coin_arr[row][col - 1] = 1;
                 que.push(row);
                 que.push(col - 1);
+            }
+            sem_post(&sem_coin);
+        }
+        for (int i = 0; i < y; i++)
+        {
+            for (int j = 0; j < x; j++)
+            {
+                if (i == 1 && j - 1 == 1 || i == 1 && j - 1 == 30 || i == 14 && j - 1 == 1 || i == 14 && j - 1 == 30)
+                    coin_arr[i][j - 1] = 3;
             }
         }
     }
@@ -180,28 +205,87 @@ void *coin_creation(void *arg)
 
 void *coin_eating(void *args)
 {
-    // while (window->isOpen())
+    float pacx, pacy, pach, pacw, windowy, windowx;
+    while (window->isOpen())
     {
-        // if ((int)((pac_man.y + pac_man.player_sprite.getGlobalBounds().height) / 60) >= window->getSize().y || (int)(pac_man.y / 60) < 0)
-        //     continue;
-        // if ((int)((pac_man.x + pac_man.player_sprite.getGlobalBounds().width) / 60) >= window->getSize().x || (int)(pac_man.x / 60) < 0)
-        //     continue;
-        // sem_wait(&sem_player);
-        if ((int)(pac_man.y / 60) == (int)((pac_man.y + pac_man.player_sprite.getGlobalBounds().height) / 60))
+        sem_wait(&sem_player);
+        pacx = pac_man.x;
+        pacy = pac_man.y;
+        pach = pac_man.player_sprite.getGlobalBounds().height;
+        pacw = pac_man.player_sprite.getGlobalBounds().width;
+        sem_post(&sem_player);
+        sem_wait(&sem_window);
+        windowx = window->getSize().x;
+        windowy = window->getSize().y;
+        sem_post(&sem_window);
+        if ((int)((pacy + pach) / 60) >= windowy || (int)(pacy / 60) < 0)
+            continue;
+        if ((int)((pacx + pacw) / 60) >= windowx || (int)(pacx / 60) < 0)
+            continue;
+        if ((int)(pacy / 60) == (int)((pacy + pach) / 60))
         {
-            if ((int)(pac_man.x / 60) == (int)((pac_man.x + pac_man.player_sprite.getGlobalBounds().width) / 60))
+            if ((int)(pacx / 60) == (int)((pacx + pacw) / 60))
             {
-                if (coin_arr[(int)(pac_man.y / 60)][(int)(pac_man.x / 60)] == 1)
+                sem_wait(&sem_coin);
+                if (coin_arr[(int)(pacy / 60)][(int)(pacx / 60)] == 1)
                 {
-                    coin_arr[(int)(pac_man.y / 60)][(int)(pac_man.x / 60)] = 2;
+                    coin_arr[(int)(pacy / 60)][(int)(pacx / 60)] = 2;
                 }
+                else if (coin_arr[(int)(pacy / 60)][(int)(pacx / 60)] == 3)
+                {
+                    for (int i = 0; i < 4; i++)
+                        ghost[i].can_die = true;
+                    coin_arr[(int)(pacy / 60)][(int)(pacx / 60)] = 2;
+                }
+                sem_post(&sem_coin);
             }
         }
-        // sem_post(&sem_player);
     }
 }
 
-void render()
+void *ppellet_eater(void *arg)
+{
+    float pacx, pacy, pach, pacw, windowy, windowx;
+    while (window->isOpen())
+    {
+        sem_wait(&sem_player);
+        pacx = pac_man.x;
+        pacy = pac_man.y;
+        pach = pac_man.player_sprite.getGlobalBounds().height;
+        pacw = pac_man.player_sprite.getGlobalBounds().width;
+        sem_post(&sem_player);
+        sem_wait(&sem_window);
+        windowx = window->getSize().x;
+        windowy = window->getSize().y;
+        sem_post(&sem_window);
+        if ((int)((pacy + pach) / 60) >= windowy || (int)(pacy / 60) < 0)
+            continue;
+        if ((int)((pacx + pacw) / 60) >= windowx || (int)(pacx / 60) < 0)
+            continue;
+        if ((int)(pacy / 60) == (int)((pacy + pach) / 60))
+        {
+            if ((int)(pacx / 60) == (int)((pacx + pacw) / 60))
+            {
+                sem_wait(&sem_coin);
+                if (coin_arr[(int)(pacy / 60)][(int)(pacx / 60)] == 3)
+                {
+                    for (int i = 0; i < 4; i++)
+                        ghost[i].can_die = true;
+                    coin_arr[(int)(pacy / 60)][(int)(pacx / 60)] = 2;
+                    sem_post(&sem_coin);
+                    sem_wait(&sem_power);
+                    pac_man.powered = true;
+                }
+                else
+                {
+                    sem_post(&sem_coin);
+                }
+            }
+        }
+    }
+}
+
+/*void render()
 {
 
     window->clear();
@@ -235,14 +319,41 @@ void render()
     }
 
     window->display();
+}*/
+
+void *permit_key_giver(void *args)
+{
+    ghost_inp *inp = (ghost_inp *)args;
+    ghost[inp->ind].permit_key();
 }
+
+void *speed_boost(void *args)
+{
+    ghost_inp *inp = (ghost_inp *)args;
+    sf::Time temp = sf::seconds(5);
+    while (window->isOpen())
+    {
+        sem_wait(&sem_speed);
+        ghost[inp->ind].speed *= 2;
+        sleep(5);
+        ghost[inp->ind].speed /= 2;
+        sem_post(&sem_speed);
+        sleep(sf::milliseconds(100));
+    }
+}
+
 void *ghost_movement(void *args)
 {
-    while(window->isOpen())
+    float temp = 0;
+    while (window->isOpen())
     {
         ghost_inp *inp = (ghost_inp *)args;
+        sem_wait(&sem_player_m);
+        ghostcount++;
+        if (ghostcount == 1)
+            sem_wait(&sem_player);
+        sem_post(&sem_player_m);
         gt[inp->ind] = ghost_clock[inp->ind].restart().asSeconds();
-        sem_wait(&sem_player);
         ghost[inp->ind].dir_changer(pac_man.x, pac_man.y, maze_arr, gt[inp->ind]);
         ghost[inp->ind].move(gt[inp->ind]);
     }
@@ -287,6 +398,13 @@ void *Game_thread(void *args)
     coin_tex.loadFromImage(sprite_sheet, rect);
     coin_spr.setTexture(coin_tex);
     coin_spr.setScale(3, 3);
+    rect.top = 24;
+    rect.left = 8;
+    rect.height = 8;
+    rect.width = 8;
+    power_tex.loadFromImage(sprite_sheet, rect);
+    power_spr.setTexture(power_tex);
+    power_spr.setScale(3, 3);
 
     window = new RenderWindow(graphics.res, graphics.wind_name);
     window->setFramerateLimit(graphics.frameRateLimit);
@@ -314,19 +432,29 @@ void *Game_thread(void *args)
                 maze_arr[i][j] = grid1[i][j];
         }
     }
-    pthread_t tid1, tid2[4], tid3, tid4;
+    pthread_t tid1, tid2[4], tid3, tid4, tid5, tid6, tid7;
     ghost_inp ginp[4];
     sem_init(&sem_window, 0, 1);
     sem_init(&sem_player, 0, 1);
+    sem_init(&sem_coin, 0, 1);
+    sem_init(&sem_player_m, 0, 1);
+    sem_init(&sem_blue_ghost, 0, 1);
+    sem_init(&sem_power, 0, 1);
+    sem_init(&sem_key, 0, 2);
+    sem_init(&sem_permit, 0, 2);
+    sem_init(&sem_speed, 0, 2);
     // player_inp pinp;
     pthread_create(&tid1, NULL, coin_creation, NULL);
     pthread_create(&tid4, NULL, coin_eating, NULL);
     pthread_create(&tid3, NULL, player_move, NULL);
+    pthread_create(&tid5, NULL, ppellet_eater, NULL);
     for (int i = 0; i < 4; i++)
     {
         // ginp[i].win = window;
         ginp[i].ind = i;
         pthread_create(&tid2[i], NULL, ghost_movement, (void *)&ginp[i]);
+        pthread_create(&tid6, NULL, permit_key_giver, (void *)&ginp[i]);
+        pthread_create(&tid7, NULL, speed_boost, (void *)&ginp[i]);
     }
 
     float timer = 0;
@@ -368,25 +496,46 @@ void *Game_thread(void *args)
         {
             for (int j = 0; j < y; j++)
             {
+                sem_wait(&sem_coin);
                 if (coin_arr[j][i] == 1)
                 {
+                    sem_post(&sem_coin);
                     coin_spr.setPosition((60 * i) + 28, (60 * j) + 28);
                     sem_wait(&sem_window);
                     window->draw(coin_spr);
                     sem_post(&sem_window);
                 }
+                else if (coin_arr[j][i] == 3)
+                {
+                    sem_post(&sem_coin);
+                    power_spr.setPosition((60 * i) + 18, (60 * j) + 18);
+                    // power_spr.setPosition(0, 60);
+                    sem_wait(&sem_window);
+                    window->draw(power_spr);
+                    sem_post(&sem_window);
+                }
+                else
+                {
+                    sem_post(&sem_coin);
+                }
             }
         }
-        timer += dt;
+        if (ghost[0].can_die == true)
+            timer += dt;
         // sem_wait(&sem_player);
         // cout << "drawing " << timer << endl;
         pac_man.draw(*window);
-        timer = 0;
+        // timer = 0;
         // sem_post(&sem_player);
         for (int i = 0; i < 4; i++)
         {
-            ghost[i].draw(*window);
+            ghost[i].draw(*window, timer);
         }
+        if (timer >= 5)
+        {
+            timer = 0;
+        }
+
         sem_wait(&sem_window);
         window->display();
         sem_post(&sem_window);
@@ -398,10 +547,12 @@ void *Game_thread(void *args)
     }
     pthread_join(tid3, NULL);
     pthread_join(tid4, NULL);
+    pthread_join(tid5, NULL);
 }
 
 int main()
 {
+    srand(time(0));
     pthread_t game_tid;
     pthread_create(&game_tid, NULL, Game_thread, NULL);
     pthread_join(game_tid, NULL);
